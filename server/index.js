@@ -2,6 +2,12 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get current directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Helper functions for mock data
 const randomDate = (start, end) => {
@@ -40,6 +46,18 @@ const createMockTicket = (index) => {
 let mockTickets = Array.from({ length: 20 }, (_, i) => createMockTicket(i));
 
 const app = express();
+
+// Update static file serving with proper directory path
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Update the catch-all route for client-side routing
+app.get('*', (req, res, next) => {
+  // Skip API routes
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
 
 // Add OPTIONS handlers for all API endpoints
 app.options('*', (req, res) => {
