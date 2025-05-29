@@ -12,7 +12,7 @@ export class WebSocketService {
 
   private connect() {
     try {
-      this.ws = new WebSocket('ws://localhost:3001');
+      this.ws = new WebSocket('ws://https://ticketing-tool-mnma.onrender.com:3001');
 
       this.ws.onopen = () => {
         console.log('WebSocket Connected');

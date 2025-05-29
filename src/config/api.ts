@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:3001/api';
+export const API_BASE_URL = 'http://https://ticketing-tool-mnma.onrender.com:3001/api';
 
 export const API_ENDPOINTS = {
   AUTH: {

@@ -1,6 +1,7 @@
 {
   "name": "pulse-ticket-central",
-  "private": true,
+  "description": "A modern, responsive ticket management system built with React, Radix UI, and Tailwind CSS.",
+  "homepage": "https://ticketing-tool-mnma.onrender.com",
   "version": "1.0.0",
   "type": "module",
   "scripts": {

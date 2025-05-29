@@ -118,5 +118,5 @@ export class WebSocketService {
 }
 
 // Create and export a singleton instance
-const wsService = new WebSocketService('ws://localhost:3001');
+const wsService = new WebSocketService('ws://https://ticketing-tool-mnma.onrender.com:3001');
 export default wsService;
