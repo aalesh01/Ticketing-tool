@@ -1,6 +1,20 @@
-# ---- Production Stage ----
-    FROM node:18-slim
+# ---- Build Stage ----
+    FROM node:18 AS builder
 
+    WORKDIR /app
+    
+    COPY package*.json ./
+    
+    # Avoid peer dependency issues
+    RUN npm install --legacy-peer-deps
+    
+    COPY . .
+    
+    RUN npm run build
+    
+    # ---- Production Stage ----
+    FROM node:18-slim
+    
     WORKDIR /app
     
     # Copy necessary files from the builder stage
