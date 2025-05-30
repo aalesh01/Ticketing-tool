@@ -25,8 +25,8 @@ const createMockTicket = (index) => {
     description: `Description for ticket ${index + 1}`,
     priority: randomChoice(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
     status: randomChoice(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
-    createdAt,
-    updatedAt: randomDate(createdAt, new Date()),
+    createdAt: createdAt.toISOString(), // Convert to ISO string
+    updatedAt: randomDate(createdAt, new Date()).toISOString(), // Convert to ISO string
     customer: { 
       id: `user${Math.floor(Math.random() * 5) + 1}`,
       firstName: randomChoice(['John', 'Jane', 'Bob', 'Alice', 'Charlie']), 
@@ -302,8 +302,8 @@ mockTickets = Array.from({ length: 20 }, (_, i) => {
     description: `Description for ticket ${i + 1}`,
     priority: randomChoice(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
     status: randomChoice(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
-    createdAt,
-    updatedAt: randomDate(createdAt, new Date()),
+    createdAt: createdAt.toISOString(), // Ensure consistent date format
+    updatedAt: randomDate(createdAt, new Date()).toISOString(), // Ensure consistent date format
     customer: { 
       id: `user${Math.floor(Math.random() * 5) + 1}`,
       firstName: randomChoice(['John', 'Jane', 'Bob', 'Alice', 'Charlie']), 
@@ -321,23 +321,49 @@ mockTickets = Array.from({ length: 20 }, (_, i) => {
 
 app.get('/api/tickets', (req, res) => {
   try {
+    console.log('Received request query:', req.query);
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const sortBy = req.query.sortBy || 'createdAt';
     const sortOrder = (req.query.sortOrder || 'desc').toLowerCase();
     const search = req.query.search || '';
     
-    console.log('Fetching tickets with params:', { page, limit, sortBy, sortOrder, search });
+    // Parse filter arrays
+    const statusFilter = req.query.status ? req.query.status.split(',') : [];
+    const priorityFilter = req.query.priority ? req.query.priority.split(',') : [];
     
-    // Filter tickets
+    console.log('Processing filters:', { statusFilter, priorityFilter });
+
+    // Start with all tickets
     let filteredTickets = [...mockTickets];
+
+    // Apply status filter
+    if (statusFilter.length > 0) {
+      console.log('Applying status filter:', statusFilter);
+      filteredTickets = filteredTickets.filter(ticket => 
+        statusFilter.includes(ticket.status)
+      );
+      console.log('Tickets after status filter:', filteredTickets.length);
+    }
+
+    // Apply priority filter
+    if (priorityFilter.length > 0) {
+      console.log('Applying priority filter:', priorityFilter);
+      filteredTickets = filteredTickets.filter(ticket => 
+        priorityFilter.includes(ticket.priority)
+      );
+      console.log('Tickets after priority filter:', filteredTickets.length);
+    }
+
+    // Apply search filter
     if (search) {
-      filteredTickets = mockTickets.filter(ticket => 
+      filteredTickets = filteredTickets.filter(ticket => 
         ticket.title.toLowerCase().includes(search.toLowerCase()) ||
         ticket.description.toLowerCase().includes(search.toLowerCase())
       );
     }
-    
+
     // Sort tickets
     const sortedTickets = filteredTickets.sort((a, b) => {
       const factor = sortOrder === 'asc' ? 1 : -1;
@@ -347,24 +373,26 @@ app.get('/api/tickets', (req, res) => {
       return factor * String(a[sortBy]).localeCompare(String(b[sortBy]));
     });
 
-    // Paginate tickets
+    // Paginate
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedTickets = sortedTickets.slice(startIndex, endIndex);
 
-    const totalItems = filteredTickets.length;
-    const totalPages = Math.ceil(totalItems / limit);
-
-    // Ensure consistent response format
     const response = {
       data: paginatedTickets,
-      page: page,
-      limit: limit,
-      total: totalItems,
-      totalPages: totalPages
+      page,
+      limit,
+      total: filteredTickets.length,
+      totalPages: Math.ceil(filteredTickets.length / limit)
     };
 
-    console.log('Sending response:', response);
+    console.log('Sending response:', {
+      totalTickets: mockTickets.length,
+      filteredCount: filteredTickets.length,
+      pageCount: paginatedTickets.length,
+      appliedFilters: { statusFilter, priorityFilter, search }
+    });
+
     res.json(response);
   } catch (error) {
     console.error('Error processing request:', error);

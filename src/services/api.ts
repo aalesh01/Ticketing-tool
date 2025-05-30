@@ -61,10 +61,11 @@ export default api;
 export const apiRequest = {
   get: <T>(url: string): Promise<T> =>
     api.get(url).then(res => {
-      console.log('Raw API Response:', res);
-      if (res.data === undefined) {
-        throw new Error('No data received from server');
-      }
+      console.log('API Response:', {
+        url,
+        data: res.data,
+        status: res.status
+      });
       return res.data;
     }),
   

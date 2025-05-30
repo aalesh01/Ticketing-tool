@@ -3,25 +3,18 @@ import {
   Typography,
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
+  TextField,
   IconButton,
-  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Grid,
+  Chip,
 } from '@mui/material';
 import {
   Add,
@@ -29,6 +22,7 @@ import {
   FilterList,
   Search,
 } from '@mui/icons-material';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
@@ -36,9 +30,16 @@ import { format } from 'date-fns';
 import { useDebouncedCallback } from 'use-debounce';
 import { useAppDispatch } from '../hooks/useAppDispatch';
 import { useTypedSelector } from '../hooks/useTypedSelector';
-import { fetchTickets, createTicket, setFilters } from '../store/slices/ticketsSlice';
+import {
+  fetchTickets,
+  createTicket,
+  setFilters,
+} from '../store/slices/ticketsSlice';
 import { TicketStatus, TicketPriority, UserRole } from '../types';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { FilterDialog } from '../components/tickets/FilterDialog';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+
 
 interface CreateTicketForm {
   title: string;
@@ -46,27 +47,73 @@ interface CreateTicketForm {
   priority: TicketPriority;
 }
 
+const StatusChip = ({ status }: { status: string }) => {
+  let color: 'default' | 'primary' | 'success' | 'warning' | 'error' = 'default';
+
+  switch (status) {
+    case 'OPEN':
+      color = 'primary';
+      break;
+    case 'RESOLVED':
+      color = 'success';
+      break;
+    case 'IN_PROGRESS':
+      color = 'warning';
+      break;
+    case 'CLOSED':
+      color = 'error';
+      break;
+    default:
+      color = 'default';
+  }
+
+  return <Chip label={status} color={color} size="small" />;
+};
+
+const PriorityChip = ({ priority }: { priority: string }) => {
+  let color: 'success' | 'warning' | 'error' | 'default' = 'default';
+
+  switch (priority) {
+    case 'LOW':
+      color = 'success';
+      break;
+    case 'MEDIUM':
+      color = 'warning';
+      break;
+    case 'HIGH':
+    case 'URGENT':
+      color = 'error';
+      break;
+    default:
+      color = 'default';
+  }
+
+  return <Chip label={priority} color={color} size="small" />;
+};
+
+
 export const TicketsPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { tickets, loading, error, pagination, filters } = useTypedSelector(state => state.tickets);
-  const { user } = useTypedSelector(state => state.auth);
-  
+  const { tickets, loading, error, pagination, filters } = useTypedSelector(
+    (state) => state.tickets
+  );
+  const { user } = useTypedSelector((state) => state.auth);
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [filterDialogOpen, setFilterDialogOpen] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebouncedCallback(
-    (value: string) => {
-      dispatch(fetchTickets({ 
-        page: pagination.page, 
+  const debouncedSearch = useDebouncedCallback((value: string) => {
+    dispatch(
+      fetchTickets({
+        page: pagination.page,
         limit: pagination.limit,
         filters: { ...filters, search: value },
         sortBy: 'createdAt',
-        sortOrder: 'desc'
-      }));
-    },
-    500
-  );
+        sortOrder: 'desc',
+      })
+    );
+  }, 500);
 
   const { control, handleSubmit, reset } = useForm<CreateTicketForm>();
 
@@ -74,23 +121,24 @@ export const TicketsPage = () => {
     debouncedSearch(searchTerm);
   }, [searchTerm, debouncedSearch]);
 
-  // Add error handling and retry logic
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const loadTickets = async () => {
       try {
-        await dispatch(fetchTickets({
-          page: 1,
-          limit: 10,
-          sortBy: 'createdAt',
-          sortOrder: 'desc'
-        })).unwrap();
+        await dispatch(
+          fetchTickets({
+            page: 1,
+            limit: 10,
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+          })
+        ).unwrap();
       } catch (err) {
         console.error('Failed to load tickets:', err);
         if (retryCount < 3) {
           setTimeout(() => {
-            setRetryCount(prev => prev + 1);
+            setRetryCount((prev) => prev + 1);
           }, Math.pow(2, retryCount) * 1000);
         }
       }
@@ -105,38 +153,12 @@ export const TicketsPage = () => {
         <Typography color="error" gutterBottom>
           {error}
         </Typography>
-        <Button 
-          variant="contained" 
-          onClick={() => setRetryCount(prev => prev + 1)}
-        >
+        <Button variant="contained" onClick={() => setRetryCount((prev) => prev + 1)}>
           Retry Loading Tickets
         </Button>
       </Box>
     );
   }
-
-  const handlePageChange = (event: unknown, newPage: number) => {
-    dispatch(fetchTickets({ 
-      page: newPage + 1, 
-      limit: pagination.limit,
-      filters
-    }));
-  };
-
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newLimit = parseInt(event.target.value, 10);
-    dispatch(fetchTickets({ 
-      page: 1, 
-      limit: newLimit,
-      filters
-    }));
-  };
-
-  const handleCreateTicket = (data: CreateTicketForm) => {
-    dispatch(createTicket(data));
-    setCreateDialogOpen(false);
-    reset();
-  };
 
   const handleViewTicket = (ticketId: string) => {
     navigate(`/tickets/${ticketId}`);
@@ -144,44 +166,132 @@ export const TicketsPage = () => {
 
   const getStatusColor = (status: TicketStatus) => {
     switch (status) {
-      case TicketStatus.OPEN: return 'primary';
-      case TicketStatus.IN_PROGRESS: return 'warning';
-      case TicketStatus.RESOLVED: return 'success';
-      case TicketStatus.CLOSED: return 'default';
-      default: return 'default';
+      case TicketStatus.OPEN:
+        return 'primary';
+      case TicketStatus.IN_PROGRESS:
+        return 'warning';
+      case TicketStatus.RESOLVED:
+        return 'success';
+      case TicketStatus.CLOSED:
+        return 'default';
+      default:
+        return 'default';
     }
   };
 
   const getPriorityColor = (priority: TicketPriority) => {
     switch (priority) {
-      case TicketPriority.LOW: return 'success';
-      case TicketPriority.MEDIUM: return 'warning';
-      case TicketPriority.HIGH: return 'error';
-      case TicketPriority.URGENT: return 'error';
-      default: return 'default';
+      case TicketPriority.LOW:
+        return 'success';
+      case TicketPriority.MEDIUM:
+        return 'warning';
+      case TicketPriority.HIGH:
+      case TicketPriority.URGENT:
+        return 'error';
+      default:
+        return 'default';
     }
   };
 
   const canCreateTicket = user?.role === UserRole.CUSTOMER || user?.role === UserRole.ADMIN;
 
+  const handleCreateTicket = (data: CreateTicketForm) => {
+    dispatch(createTicket(data));
+    setCreateDialogOpen(false);
+    reset();
+  };
+
+  const handleApplyFilters = (newFilters: any) => {
+    dispatch(setFilters(newFilters));
+    dispatch(
+      fetchTickets({
+        page: 1,
+        limit: pagination.limit,
+        filters: newFilters,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      })
+    );
+  };
+
+  const columns: GridColDef[] = [
+    { field: 'title', headerName: 'Title', flex: 1 },
+  
+    { field: 'status', headerName: 'Status', flex: 1, renderCell: (params) => <StatusChip status={params.value} /> },
+  
+    { field: 'priority', headerName: 'Priority', flex: 1, renderCell: (params) => <PriorityChip priority={params.value} /> },
+  
+    {
+      field: 'customer',
+      headerName: 'Customer',
+      flex: 1,
+      renderCell: (params) => {
+        const row = params.row;
+        console.log('Customer row data:', row); // Debug log
+        
+        if (!row) return <span>-</span>;
+        
+        // Handle the actual data structure
+        if (row.customer) {
+          const { firstName, lastName, name, email } = row.customer;
+          const fullName = `${firstName || ''} ${lastName || ''}`.trim() || name || email || 'Unknown Customer';
+          return <span>{fullName}</span>;
+        }
+        
+        const fallbackName = row.customerName || row.createdBy?.name || 'Unknown Customer';
+        return <span>{fallbackName}</span>;
+      },
+    },
+  
+    {
+      field: 'createdAt',
+      headerName: 'Created At',
+      flex: 1,
+      renderCell: (params) => {
+        const row = params.row;
+        console.log('Date row data:', row); // Debug log
+        console.log('CreatedAt value:', row?.createdAt); // Debug log
+        
+        if (!row || !row.createdAt) {
+          return <span>No Date</span>;
+        }
+        
+        try {
+          const date = new Date(row.createdAt);
+          if (!isNaN(date.getTime())) {
+            const formattedDate = format(date, 'MMM dd, yyyy HH:mm');
+            console.log('Formatted date:', formattedDate); // Debug log
+            return <span>{formattedDate}</span>;
+          }
+          return <span>Invalid Date</span>;
+        } catch (error) {
+          console.error('Date parsing error:', error);
+          return <span>Date Error</span>;
+        }
+      }
+    },
+  
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      flex: 1,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton onClick={() => handleViewTicket(params.row?.id)}>
+          <VisibilityIcon />
+        </IconButton>
+      )
+    }
+  ];
+  
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Tickets</Typography>
-        <Box display="flex" gap={2}>
-          <TextField
-            placeholder="Search tickets..."
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
-            }}
-          />
-          <IconButton onClick={() => setFilterDialogOpen(true)}>
-            <FilterList />
-          </IconButton>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Tickets
+      </Typography>
+
+      <Box display="flex" justifyContent="space-between" mb={2}>
+        <Box display="flex" gap={1}>
           {canCreateTicket && (
             <Button
               variant="contained"
@@ -191,179 +301,150 @@ export const TicketsPage = () => {
               Create Ticket
             </Button>
           )}
+          <IconButton
+            color="primary"
+            onClick={() => setFilterDialogOpen(true)}
+          >
+            <FilterList />
+          </IconButton>
+        </Box>
+
+        <Box display="flex" alignItems="center">
+          <TextField
+            variant="outlined"
+            placeholder="Search tickets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <Search />
+              ),
+            }}
+          />
         </Box>
       </Box>
 
       {loading ? (
-        <LoadingSpinner message="Loading tickets..." />
+        <LoadingSpinner />
       ) : (
-        <Paper>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Priority</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell>Assignee</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {Array.isArray(tickets) && tickets.length > 0 ? (
-                  tickets.map((ticket) => ticket && (
-                    <TableRow key={ticket?.id || 'unknown'}>
-                      <TableCell>
-                        <Typography variant="subtitle2">
-                          {ticket?.title || 'Untitled'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket?.status || 'UNKNOWN'}
-                          color={getStatusColor(ticket?.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket?.priority || 'UNKNOWN'}
-                          color={getPriorityColor(ticket?.priority)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {ticket?.customer ? 
-                          `${ticket.customer.firstName} ${ticket.customer.lastName}` : 
-                          'Unknown Customer'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {ticket?.assignee ? 
-                          `${ticket.assignee.firstName} ${ticket.assignee.lastName}` :
-                          'Unassigned'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {ticket?.createdAt ? 
-                          format(new Date(ticket.createdAt), 'MMM dd, yyyy') :
-                          'Unknown Date'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => ticket?.id && handleViewTicket(ticket.id)}
-                          disabled={!ticket?.id}
-                        >
-                          <Visibility />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="textSecondary">
-                        {loading ? 'Loading tickets...' : 'No tickets found'}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {tickets && tickets.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={pagination?.total || 0}
-              rowsPerPage={pagination?.limit || 10}
-              page={(pagination?.page || 1) - 1}
-              onPageChange={handlePageChange}
-              onRowsPerPageChange={handleRowsPerPageChange}
-            />
-          )}
-        </Paper>
+        <Box sx={{ flexGrow: 1, height: '100%', minHeight: 400 }}>
+          <DataGrid
+            rows={tickets}
+            columns={columns}
+            pageSize={pagination.limit}
+            rowsPerPageOptions={[10, 20, 50]}
+            pagination
+            paginationMode="server"
+            rowCount={pagination.total}
+            onPageChange={(page) =>
+              dispatch(
+                fetchTickets({
+                  page: page + 1,
+                  limit: pagination.limit,
+                  filters,
+                  sortBy: 'createdAt',
+                  sortOrder: 'desc',
+                })
+              )
+            }
+            onPageSizeChange={(newPageSize) =>
+              dispatch(
+                fetchTickets({
+                  page: 1,
+                  limit: newPageSize,
+                  filters,
+                  sortBy: 'createdAt',
+                  sortOrder: 'desc',
+                })
+              )
+            }
+          />
+        </Box>
       )}
 
       {/* Create Ticket Dialog */}
-      <Dialog 
-        open={createDialogOpen} 
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Create New Ticket</DialogTitle>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)}>
+        <DialogTitle>Create Ticket</DialogTitle>
         <form onSubmit={handleSubmit(handleCreateTicket)}>
           <DialogContent>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="title"
-                  control={control}
-                  defaultValue=""
-                  rules={{ required: 'Title is required' }}
-                  render={({ field, fieldState: { error } }) => (
-                    <TextField
-                      {...field}
-                      label="Title"
-                      fullWidth
-                      error={!!error}
-                      helperText={error?.message}
-                    />
-                  )}
+            <Controller
+              name="title"
+              control={control}
+              defaultValue=""
+              rules={{ required: 'Title is required' }}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Title"
+                  fullWidth
+                  margin="normal"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="description"
-                  control={control}
-                  defaultValue=""
-                  rules={{ required: 'Description is required' }}
-                  render={({ field, fieldState: { error } }) => (
-                    <TextField
-                      {...field}
-                      label="Description"
-                      multiline
-                      rows={4}
-                      fullWidth
-                      error={!!error}
-                      helperText={error?.message}
-                    />
-                  )}
+              )}
+            />
+            <Controller
+              name="description"
+              control={control}
+              defaultValue=""
+              rules={{ required: 'Description is required' }}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Description"
+                  fullWidth
+                  margin="normal"
+                  multiline
+                  rows={4}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="priority"
-                  control={control}
-                  defaultValue={TicketPriority.MEDIUM}
-                  render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel>Priority</InputLabel>
-                      <Select {...field} label="Priority">
-                        {Object.values(TicketPriority).map((priority) => (
-                          <MenuItem key={priority} value={priority}>
-                            {priority}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  )}
-                />
-              </Grid>
-            </Grid>
+              )}
+            />
+            <Controller
+              name="priority"
+              control={control}
+              defaultValue={TicketPriority.MEDIUM}
+              render={({ field }) => (
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Priority</InputLabel>
+                  <Select
+                    {...field}
+                    label="Priority"
+                  >
+                    {Object.values(TicketPriority).map((priority) => (
+                      <MenuItem key={priority} value={priority}>
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">Create</Button>
+            <Button onClick={() => setCreateDialogOpen(false)} color="primary">
+              Cancel
+            </Button>
+            <Button type="submit" color="primary">
+              Create Ticket
+            </Button>
           </DialogActions>
         </form>
       </Dialog>
+      {/* Filter Dialog */}
+      <FilterDialog
+        open={filterDialogOpen}
+        onClose={() => setFilterDialogOpen(false)}
+        filters={filters}
+        onApplyFilters={handleApplyFilters}
+        onClearFilters={() => handleApplyFilters({})}
+        onReset={() => {
+          setSearchTerm('');
+          handleApplyFilters({});
+        }}
+      />
     </Box>
   );
-};
+}
+

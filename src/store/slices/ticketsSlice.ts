@@ -42,43 +42,33 @@ export const fetchTickets = createAsyncThunk(
   'tickets/fetchTickets',
   async (params: { page?: number; limit?: number; filters?: TicketFilters; sortBy?: string; sortOrder?: 'asc' | 'desc' }) => {
     try {
-      const queryParams = new URLSearchParams({
-        page: String(params.page || 1),
-        limit: String(params.limit || 10),
-        sortBy: params.sortBy || 'createdAt',
-        sortOrder: params.sortOrder || 'desc',
-      });
-
-      // Properly handle filters
-      if (params.filters) {
-        Object.entries(params.filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            if (Array.isArray(value)) {
-              value.forEach(item => queryParams.append(key, String(item)));
-            } else {
-              queryParams.append(key, String(value));
-            }
-          }
-        });
-      }
+      const queryParams = new URLSearchParams();
       
-      const response = await apiRequest.get<PaginatedResponse<Ticket>>(
-        `${API_ENDPOINTS.TICKETS.LIST}?${queryParams}`
-      );
+      // Add pagination params
+      queryParams.append('page', String(params.page || 1));
+      queryParams.append('limit', String(params.limit || 10));
+      queryParams.append('sortBy', params.sortBy || 'createdAt');
+      queryParams.append('sortOrder', params.sortOrder || 'desc');
 
-      console.log('Tickets response:', response);
-
-      if (!response || !response.data || !Array.isArray(response.data)) {
-        throw new Error('Invalid response format');
+      // Add filter params
+      if (params.filters) {
+        console.log('Applying filters:', params.filters);
+        if (params.filters.status && params.filters.status.length > 0) {
+          queryParams.append('status', params.filters.status.join(','));
+        }
+        if (params.filters.priority && params.filters.priority.length > 0) {
+          queryParams.append('priority', params.filters.priority.join(','));
+        }
+        if (params.filters.search) {
+          queryParams.append('search', params.filters.search);
+        }
       }
 
-      return {
-        data: response.data,
-        page: response.page || 1,
-        limit: response.limit || 10,
-        total: response.total || 0,
-        totalPages: response.totalPages || 0
-      };
+      const url = `${API_ENDPOINTS.TICKETS.LIST}?${queryParams.toString()}`;
+      console.log('Fetching tickets with URL:', url);
+      
+      const response = await apiRequest.get<PaginatedResponse<Ticket>>(url);
+      return response;
     } catch (error) {
       console.error('Error fetching tickets:', error);
       throw error;

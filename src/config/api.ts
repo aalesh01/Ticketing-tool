@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://ticketing-tool-mnma.onrender.com/api';
+export const API_BASE_URL = 'http://localhost:3001/api';  // Change back to localhost
 
 export const API_ENDPOINTS = {
   AUTH: {
@@ -8,13 +8,13 @@ export const API_ENDPOINTS = {
     ME: '/auth/me'
   },
   TICKETS: {
-    LIST: `${API_BASE_URL}/tickets`,
-    GET: (id: string) => `${API_BASE_URL}/tickets/${id}`,
-    CREATE: `${API_BASE_URL}/tickets`,
-    UPDATE: (id: string) => `${API_BASE_URL}/tickets/${id}`,
-    DELETE: (id: string) => `${API_BASE_URL}/tickets/${id}`,
-    MESSAGES: (id: string) => `${API_BASE_URL}/tickets/${id}/messages`,
-    ADD_MESSAGE: (id: string) => `${API_BASE_URL}/tickets/${id}/messages`,
+    LIST: '/tickets',  // Remove API_BASE_URL prefix
+    GET: (id: string) => `/tickets/${id}`,
+    CREATE: '/tickets',
+    UPDATE: (id: string) => `/tickets/${id}`,
+    DELETE: (id: string) => `/tickets/${id}`,
+    MESSAGES: (id: string) => `/tickets/${id}/messages`,
+    ADD_MESSAGE: (id: string) => `/tickets/${id}/messages`,
   },
   DASHBOARD: {
     STATS: `${API_BASE_URL}/dashboard/stats`,
